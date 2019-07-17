@@ -21,7 +21,7 @@ def test(message):
 
 @bot.message_handler(func=lambda m: m.chat.type == "supergroup", commands=['me'])
 def me_irc(message):
-    if message.chat.id == BotUtils.RUDE_QA_CHAT_ID:
+    if message.chat.id == methods.RUDE_QA_CHAT_ID:
         try:
             query = methods.prepare_query(message)
 
@@ -38,7 +38,7 @@ def me_irc(message):
 
 @bot.message_handler(func=lambda m: m.text == "!ro" and m.chat.type == "supergroup")
 def read_only(message):
-    if message.chat.id == BotUtils.RUDE_QA_CHAT_ID:
+    if message.chat.id == methods.RUDE_QA_CHAT_ID:
         try:
             admin_list = [
                 x.user.id for x in bot.get_chat_administrators(message.chat.id)]
