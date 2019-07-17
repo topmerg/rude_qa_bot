@@ -14,7 +14,7 @@ bot = TeleBot(
 methods = BotUtils()
 
 
-@bot.message_handler(func=lambda m: m.chat.id == 116233702 and m.text == "ping")
+@bot.message_handler(func=lambda m: m.text == "ping")
 def test(message):
     bot.send_message(message.chat.id, "pong")
 
