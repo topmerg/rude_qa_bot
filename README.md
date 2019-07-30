@@ -13,13 +13,33 @@ source venv/bin/activate
 ```
 pip install -r requirements.txt
 ```
-####Setup environment variables
+#### Setup environment variables
 ```
 cp .env.dist .env
 ```
 Fill .env file with actual values
 
-####Run project
+#### Run project
 ```
 python3 src/rudeboy_bot.py
+```
+## Run in Docker
+
+#### Build image
+```
+docker build . -t rudeboy
+```
+#### Setup environment variables
+```
+cp .env.dist .env
+```
+Fill .env file with actual values
+
+#### Run container
+```
+docker-compose -f docker-compose.yml up
+```
+or for detached mode
+```
+docker-compose -f docker-compose.yml up -d
 ```

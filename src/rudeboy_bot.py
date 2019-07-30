@@ -2,15 +2,16 @@ import logging
 
 from telebot import TeleBot
 from telebot.apihelper import ApiException
-from telebot.types import Message, CallbackQuery
+from telebot.types import Message, CallbackQuery, User
 
-from .const import TelegramChatType, EnvVar, TelegramParseMode, LoggingSettings, BanDuration
-from .dto import NewbieDto
-from .env_loader import EnvLoader
-from .error import ParseBanDurationError, NewbieAlreadyInStorageError, NewbieStorageUpdateError
-from .greeting import QuestionProvider, NewbieStorage
-from .notification import Notification
-from .utils import BotUtils
+from const import TelegramChatType, EnvVar, TelegramParseMode, LoggingSettings, BanDuration
+from dto import NewbieDto, DurationDto
+from env_loader import EnvLoader
+from error import ParseBanDurationError, NewbieAlreadyInStorageError, NewbieStorageUpdateError, \
+    InvalidCommandError, InvalidConditionError
+from greeting import QuestionProvider, NewbieStorage
+from notification import Notification
+from utils import BotUtils
 
 logging.basicConfig(
     format=LoggingSettings.RECORD_FORMAT,
@@ -79,57 +80,93 @@ def me_irc(message: Message):
 @bot.message_handler(func=lambda m: m.text and m.text[:4].rstrip() in ['!ro', '!to'])
 @rude_qa_only
 @supergroup_only
-def read_only_handler(message: Message):
+def restrict_handler(message: Message):
     try:
+        if message.forward_from:
+            raise InvalidConditionError()
+
+        command = message.text[1:3]
+        task_list = dict(
+            ro=set_read_only,
+            to=set_text_only,
+        )
+
         admin_list = [x.user.id for x in bot.get_chat_administrators(message.chat.id)]
-
         if message.from_user.id in admin_list:
-            target_message = message.reply_to_message
-            if target_message.from_user.id in admin_list:
-                logger.warning('Try to restrict another admin. Abort.')
-                return
+            try:
+                target_message = message.reply_to_message
+                if target_message.from_user.id in admin_list:
+                    logger.warning(f'@{message.from_user.username} trying to restrict another admin. Abort.')
+                    raise InvalidConditionError()
+            except AttributeError:
+                raise InvalidConditionError()
         else:
-            logger.warning('Try to use restrict command from non-factor user. Reflect!')
+            logger.warning(f'Non-factor {message.from_user.username} trying to use restrict command. Reflect!')
             target_message = message
+            command = 'ro'
 
-        query = methods.prepare_query(message.text)
-        restrict_duration = methods.get_duration(query)
+        try:
+            query = methods.prepare_query(message.text)
+            restrict_duration = methods.get_duration(query)
+        except ParseBanDurationError:
+            raise InvalidCommandError
 
         target_user = target_message.from_user
         try:
             logger.info(f'Try to use restrict @{target_user.username} for {query}.')
-            if message.text[:3] == '!ro':
-                bot.restrict_chat_member(
-                    chat_id=message.chat.id,
-                    user_id=target_user.id,
-                    until_date=message.date + restrict_duration.seconds,
-                    can_send_messages=False
+            try:
+                restrict_task = task_list.get(command)
+                ban_text = restrict_task(
+                    user=target_user,
+                    message=message,
+                    duration=restrict_duration
                 )
-                ban_text = notification.read_only(
-                    first_name=target_user.first_name,
-                    duration_text=restrict_duration.text,
-                )
-            if message.text[:3] == '!to':
-                bot.restrict_chat_member(
-                    chat_id=message.chat.id,
-                    user_id=target_user.id,
-                    until_date=message.date + restrict_duration.seconds,
-                    can_send_messages=True,
-                    can_send_media_messages=False,
-                )
-                ban_text = notification.text_only(
-                    first_name=target_user.first_name,
-                    duration_text=restrict_duration.text,
-                )
+            except (KeyError, TypeError):
+                raise InvalidCommandError()
+
             bot.send_message(message.chat.id, f'*{ban_text}*', parse_mode=TelegramParseMode.MARKDOWN)
         except ApiException:
             logger.error(f'Can not restrict chat member {target_user}')
 
-    except ParseBanDurationError:
+    except InvalidCommandError:
+        logger.warning(f'Can not execute command \'{message.text}\' from @{message.from_user.username}')
         try:
             bot.delete_message(message.chat.id, message.message_id)
         except ApiException:
             logger.error(f'Can not delete chat message {message}')
+    except InvalidConditionError:
+        pass
+
+
+def set_read_only(user: User, message: Message, duration: DurationDto) -> str:
+    bot.restrict_chat_member(
+        chat_id=message.chat.id,
+        user_id=user.id,
+        until_date=message.date + duration.seconds,
+        can_send_messages=False
+    )
+    ban_text = notification.read_only(
+        first_name=user.first_name,
+        duration_text=duration.text,
+    )
+
+    return ban_text
+
+
+def set_text_only(user: User, message: Message, duration: DurationDto) -> str:
+    bot.restrict_chat_member(
+        chat_id=message.chat.id,
+        user_id=user.id,
+        until_date=message.date + duration.seconds,
+        can_send_messages=True,
+        can_send_media_messages=False,
+    )
+    ban_text = notification.text_only(
+        first_name=user.first_name,
+        duration_text=duration.text,
+    )
+
+    return ban_text
 
 
 @bot.message_handler(content_types=['new_chat_members'])
@@ -227,7 +264,7 @@ def timeout_kick(newbie: NewbieDto):
     user = newbie.user
     newbie_storage.remove(user)
     remove_inline_keyboard(greeting_message)
-    kick_text = Notification.timeout_kick(user.first_name)
+    kick_text = notification.timeout_kick(user.first_name)
     kick_message = bot.send_message(
         chat_id=greeting_message.chat.id,
         text=f'*{kick_text}*',
@@ -250,9 +287,4 @@ def timeout_kick(newbie: NewbieDto):
 
 
 if __name__ == '__main__':
-    # bot.promote_chat_member(
-    #     -1001316002826,
-    #     143970697,
-    #     True
-    # )
     bot.polling()
