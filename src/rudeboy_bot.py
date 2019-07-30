@@ -1,5 +1,4 @@
 import logging
-import time
 
 from telebot import TeleBot
 from telebot.apihelper import ApiException
@@ -10,6 +9,7 @@ from .dto import NewbieDto
 from .env_loader import EnvLoader
 from .error import ParseBanDurationError, NewbieAlreadyInStorageError, NewbieStorageUpdateError
 from .greeting import QuestionProvider, NewbieStorage
+from .notification import Notification
 from .utils import BotUtils
 
 logging.basicConfig(
@@ -29,6 +29,7 @@ bot = TeleBot(
 
 newbie_storage = NewbieStorage(logger)
 methods = BotUtils(env_loader.get_required(EnvVar.TELEGRAM_CHAT_ID))
+notification = Notification()
 
 
 @bot.message_handler(func=lambda m: m.text == 'ping')
@@ -55,7 +56,7 @@ def me_irc(message: Message):
 
 @bot.message_handler(
     func=lambda m:
-    m.content_type == 'text' and m.text[:4].rstrip() == '!ro' and m.chat.type == TelegramChatType.SUPER_GROUP
+    m.content_type == 'text' and m.text[:4].rstrip() in ['!ro', '!to'] and m.chat.type == TelegramChatType.SUPER_GROUP
 )
 def read_only_handler(message: Message):
     if message.chat.id == methods.chat_id:
@@ -77,14 +78,30 @@ def read_only_handler(message: Message):
             target_user = target_message.from_user
             try:
                 logger.info(f'Try to use restrict @{target_user.username} for {query}.')
-                bot.restrict_chat_member(
-                    chat_id=message.chat.id,
-                    user_id=target_user.id,
-                    until_date=int(time.time() + restrict_duration.seconds),
-                    can_send_messages=False
-                )
-                ban_message = f'*{target_user.first_name} помещен в read-only на {restrict_duration.text}*'
-                bot.send_message(message.chat.id, ban_message, parse_mode=TelegramParseMode.MARKDOWN)
+                if message.text[:3] == '!ro':
+                    bot.restrict_chat_member(
+                        chat_id=message.chat.id,
+                        user_id=target_user.id,
+                        until_date=message.date + restrict_duration.seconds,
+                        can_send_messages=False
+                    )
+                    ban_message = notification.read_only(
+                        first_name=target_user.first_name,
+                        duration_text=restrict_duration.text,
+                    )
+                if message.text[:3] == '!to':
+                    bot.restrict_chat_member(
+                        chat_id=message.chat.id,
+                        user_id=target_user.id,
+                        until_date=message.date + restrict_duration.seconds,
+                        can_send_messages=True,
+                        can_send_media_messages=False,
+                    )
+                    ban_message = notification.text_only(
+                        first_name=target_user.first_name,
+                        duration_text=restrict_duration.text,
+                    )
+                bot.send_message(message.chat.id, f'*{ban_message}*', parse_mode=TelegramParseMode.MARKDOWN)
             except ApiException:
                 logger.error(f'Can not restrict chat member {target_user}')
 
@@ -200,7 +217,7 @@ def timeout_kick(newbie: NewbieDto):
         bot.kick_chat_member(
             chat_id=greeting_message.chat.id,
             user_id=user.id,
-            until_date=int(time.time() + BanDuration.DURATION_SECONDS),
+            until_date=kick_message.date + BanDuration.DURATION_SECONDS,
         )
         logger.info(f'@{user.username} was kicked from chat due greeting timeout.')
     except ApiException:

@@ -44,3 +44,18 @@ class RestrictDuration:
 
 class BanDuration:
     DURATION_SECONDS = 30
+
+
+class NotificationTemplateList:
+    READ_ONLY = [
+        '{first_name} помещен в read-only на {duration_text}.',
+        '{first_name} завалил ебало на {duration_text}.',
+        '{first_name} выпил высокий стакан ебалозавалина, которого хватит на {duration_text}.',
+        '{first_name} не будет пиздеть ещё {duration_text}.',
+        '{first_name} сможет дальше пиздеть только через {duration_text}.',
+    ]
+
+    TEXT_ONLY = [
+        '{first_name} помещен в text-only на {duration_text}.',
+        '{first_name} не будет постить уебанские картиночки {duration_text}.',
+    ]
