@@ -2,7 +2,7 @@ from copy import copy
 from random import shuffle
 from typing import Dict, List
 
-from const import NotificationTemplateList
+from .const import NotificationTemplateList
 
 
 class Notification:
