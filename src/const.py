@@ -26,7 +26,7 @@ class RestrictDuration:
     DEFAULT_DURATION = 5
     DEFAULT_UNIT = 'm'
 
-    MIN_DURATION = DurationDto(30, '30 секунд')
+    MIN_DURATION = DurationDto(35, '35 секунд')
     MAX_DURATION = DurationDto(864000, '10 дней')
 
     SECONDS_SETTINGS = dict(rate=1, plural_forms=PluralFormsDto(form_1='секунду', form_2='секунды', form_3='секунд'))
@@ -43,4 +43,25 @@ class RestrictDuration:
 
 
 class BanDuration:
-    DURATION_SECONDS = 30
+    DURATION_SECONDS = 35
+
+
+class NotificationTemplateList:
+    READ_ONLY = [
+        '{first_name} помещен в read-only на {duration_text}.',
+        '{first_name} завалил ебало на {duration_text}.',
+        '{first_name} выпил высокий стакан ебалозавалина, которого хватит на {duration_text}.',
+        '{first_name} не будет пиздеть ещё {duration_text}.',
+        '{first_name} сможет дальше пиздеть только через {duration_text}.',
+    ]
+
+    TEXT_ONLY = [
+        '{first_name} помещен в text-only на {duration_text}.',
+        '{first_name} не будет постить уебанские картиночки {duration_text}.',
+    ]
+
+    TIMEOUT_KICK = [
+        '{first_name} пиздует из чата, потому что не ответил на вопрос.',
+        'Вопрос был довольно простой. {first_name} ведёт себя, как бот.',
+        '{first_name} слишком долго тупит. Здесь таких не держат.',
+    ]
