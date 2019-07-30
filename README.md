@@ -2,14 +2,24 @@
 
 ## Setup and run
 
+#### Setup virtual environment
 ```
 virtualenv -p /usr/local/bin/python3.7 venv
 
 source venv/bin/activate
+```
 
+#### Install project requirements
+```
 pip install -r requirements.txt
+```
+####Setup environment variables
+```
+cp .env.dist .env
+```
+Fill .env file with actual values
 
-echo "TELEGRAM_TOKEN = 'Your:BotToken'" > config.py
-
-python bot.py
+####Run project
+```
+python3 src/rudeboy_bot.py
 ```
