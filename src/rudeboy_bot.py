@@ -227,7 +227,7 @@ def timeout_kick(newbie: NewbieDto):
     user = newbie.user
     newbie_storage.remove(user)
     remove_inline_keyboard(greeting_message)
-    kick_text = Notification.timeout_kick(user.first_name)
+    kick_text = notification.timeout_kick(user.first_name)
     kick_message = bot.send_message(
         chat_id=greeting_message.chat.id,
         text=f'*{kick_text}*',
