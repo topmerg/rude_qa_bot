@@ -32,127 +32,147 @@ methods = BotUtils(env_loader.get_required(EnvVar.TELEGRAM_CHAT_ID))
 notification = Notification()
 
 
+def rude_qa_only(handler):
+    def wrapper(message: Message):
+        if message.chat.id == methods.chat_id:
+            return handler(message)
+
+    return wrapper
+
+
+def supergroup_only(handler):
+    def wrapper(message: Message):
+        try:
+            if message.chat.type == TelegramChatType.SUPER_GROUP:
+                return handler(message)
+        except TypeError:
+            pass
+
+    return wrapper
+
+
 @bot.message_handler(func=lambda m: m.text == 'ping')
+@supergroup_only
+@rude_qa_only
 def ping_handler(message: Message):
     bot.send_message(message.chat.id, 'pong')
 
 
-@bot.message_handler(func=lambda m: m.chat.type == TelegramChatType.SUPER_GROUP, commands=['me'])
+@bot.message_handler(commands=['me'])
+@rude_qa_only
+@supergroup_only
 def me_irc(message: Message):
-    if message.chat.id == methods.chat_id:
-        try:
-            query = methods.prepare_query(message.text)
+    try:
+        query = methods.prepare_query(message.text)
 
-            if query:
-                bot.delete_message(message.chat.id, message.message_id)
-                bot.send_message(message.chat.id, '*{}* _{}_'.format(message.from_user.first_name, query),
-                                 parse_mode=TelegramParseMode.MARKDOWN)
-            else:
-                bot.delete_message(message.chat.id, message.message_id)
-        except (ApiException, IndexError):
-            bot.send_message(
-                message.chat.id, 'Братиш, наебнулось. Посмотри логи.')
+        if query:
+            bot.delete_message(message.chat.id, message.message_id)
+            bot.send_message(message.chat.id, '*{}* _{}_'.format(message.from_user.first_name, query),
+                             parse_mode=TelegramParseMode.MARKDOWN)
+        else:
+            bot.delete_message(message.chat.id, message.message_id)
+    except (ApiException, IndexError):
+        bot.send_message(
+            message.chat.id, 'Братиш, наебнулось. Посмотри логи.')
 
 
-@bot.message_handler(
-    func=lambda m:
-    m.content_type == 'text' and m.text[:4].rstrip() in ['!ro', '!to'] and m.chat.type == TelegramChatType.SUPER_GROUP
-)
+@bot.message_handler(func=lambda m: m.text and m.text[:4].rstrip() in ['!ro', '!to'])
+@rude_qa_only
+@supergroup_only
 def read_only_handler(message: Message):
-    if message.chat.id == methods.chat_id:
+    try:
+        admin_list = [x.user.id for x in bot.get_chat_administrators(message.chat.id)]
+
+        if message.from_user.id in admin_list:
+            target_message = message.reply_to_message
+            if target_message.from_user.id in admin_list:
+                logger.warning('Try to restrict another admin. Abort.')
+                return
+        else:
+            logger.warning('Try to use restrict command from non-factor user. Reflect!')
+            target_message = message
+
+        query = methods.prepare_query(message.text)
+        restrict_duration = methods.get_duration(query)
+
+        target_user = target_message.from_user
         try:
-            admin_list = [x.user.id for x in bot.get_chat_administrators(message.chat.id)]
+            logger.info(f'Try to use restrict @{target_user.username} for {query}.')
+            if message.text[:3] == '!ro':
+                bot.restrict_chat_member(
+                    chat_id=message.chat.id,
+                    user_id=target_user.id,
+                    until_date=message.date + restrict_duration.seconds,
+                    can_send_messages=False
+                )
+                ban_text = notification.read_only(
+                    first_name=target_user.first_name,
+                    duration_text=restrict_duration.text,
+                )
+            if message.text[:3] == '!to':
+                bot.restrict_chat_member(
+                    chat_id=message.chat.id,
+                    user_id=target_user.id,
+                    until_date=message.date + restrict_duration.seconds,
+                    can_send_messages=True,
+                    can_send_media_messages=False,
+                )
+                ban_text = notification.text_only(
+                    first_name=target_user.first_name,
+                    duration_text=restrict_duration.text,
+                )
+            bot.send_message(message.chat.id, f'*{ban_text}*', parse_mode=TelegramParseMode.MARKDOWN)
+        except ApiException:
+            logger.error(f'Can not restrict chat member {target_user}')
 
-            if message.from_user.id in admin_list:
-                target_message = message.reply_to_message
-                if target_message.from_user.id in admin_list:
-                    logger.warning('Try to restrict another admin. Abort.')
-                    return
-            else:
-                logger.warning('Try to use restrict command from non-factor user. Reflect!')
-                target_message = message
-
-            query = methods.prepare_query(message.text)
-            restrict_duration = methods.get_duration(query)
-
-            target_user = target_message.from_user
-            try:
-                logger.info(f'Try to use restrict @{target_user.username} for {query}.')
-                if message.text[:3] == '!ro':
-                    bot.restrict_chat_member(
-                        chat_id=message.chat.id,
-                        user_id=target_user.id,
-                        until_date=message.date + restrict_duration.seconds,
-                        can_send_messages=False
-                    )
-                    ban_message = notification.read_only(
-                        first_name=target_user.first_name,
-                        duration_text=restrict_duration.text,
-                    )
-                if message.text[:3] == '!to':
-                    bot.restrict_chat_member(
-                        chat_id=message.chat.id,
-                        user_id=target_user.id,
-                        until_date=message.date + restrict_duration.seconds,
-                        can_send_messages=True,
-                        can_send_media_messages=False,
-                    )
-                    ban_message = notification.text_only(
-                        first_name=target_user.first_name,
-                        duration_text=restrict_duration.text,
-                    )
-                bot.send_message(message.chat.id, f'*{ban_message}*', parse_mode=TelegramParseMode.MARKDOWN)
-            except ApiException:
-                logger.error(f'Can not restrict chat member {target_user}')
-
-        except ParseBanDurationError:
-            try:
-                bot.delete_message(message.chat.id, message.message_id)
-            except ApiException:
-                logger.error(f'Can not delete chat message {message}')
+    except ParseBanDurationError:
+        try:
+            bot.delete_message(message.chat.id, message.message_id)
+        except ApiException:
+            logger.error(f'Can not delete chat message {message}')
 
 
 @bot.message_handler(content_types=['new_chat_members'])
+@rude_qa_only
 def greeting_handler(message: Message):
-    if message.chat.id == methods.chat_id:
-        for new_user in message.new_chat_members:
-            logger.info(f'New member joined the group: {new_user}')
-            question = QuestionProvider.get_question()
+    for new_user in message.new_chat_members:
+        logger.info(f'New member joined the group: {new_user}')
+        question = QuestionProvider.get_question()
 
-            try:
-                newbie_storage.add(user=new_user, timeout=message.date + question.timeout, question=question)
-            except NewbieAlreadyInStorageError:
-                return timeout_kick(newbie_storage.get(new_user))
+        try:
+            newbie_storage.add(user=new_user, timeout=message.date + question.timeout, question=question)
+        except NewbieAlreadyInStorageError:
+            return timeout_kick(newbie_storage.get(new_user))
 
-            logger.info(f'Trying to temporary restrict all users content for @{new_user.username}')
-            try:
-                bot.restrict_chat_member(
-                    chat_id=message.chat.id,
-                    user_id=new_user.id,
-                    until_date=message.date + question.timeout * 2,
-                    can_send_messages=False
-                )
-            except ApiException:
-                logger.error(f'Can not restrict chat member {new_user}')
-                return
-
-            greeting_message = bot.send_message(
+        logger.info(f'Trying to temporary restrict all users content for @{new_user.username}')
+        try:
+            bot.restrict_chat_member(
                 chat_id=message.chat.id,
-                text=question.text.format(mention=methods.mention(new_user)),
-                reply_markup=question.keyboard,
-                reply_to_message_id=message.message_id,
-                parse_mode=TelegramParseMode.MARKDOWN,
+                user_id=new_user.id,
+                until_date=message.date + question.timeout * 2,
+                can_send_messages=False
             )
+        except ApiException:
+            logger.error(f'Can not restrict chat member {new_user}')
+            return
+
+        greeting_message = bot.send_message(
+            chat_id=message.chat.id,
+            text=question.text.format(mention=methods.mention(new_user)),
+            reply_markup=question.keyboard,
+            reply_to_message_id=message.message_id,
+            parse_mode=TelegramParseMode.MARKDOWN,
+        )
+        try:
+            newbie_storage.update(
+                user=new_user,
+                greeting=greeting_message
+            )
+        except NewbieStorageUpdateError:
             try:
-                newbie_storage.update(
-                    user=new_user,
-                    greeting=greeting_message
-                )
-            except NewbieStorageUpdateError:
-                try:
-                    bot.delete_message(message.chat.id, greeting_message.message_id)
-                except ApiException:
-                    logger.error(f'Can not delete chat message {message}')
+                bot.delete_message(message.chat.id, greeting_message.message_id)
+            except ApiException:
+                logger.error(f'Can not delete chat message {message}')
 
 
 @bot.callback_query_handler(func=lambda call: True)
@@ -207,9 +227,10 @@ def timeout_kick(newbie: NewbieDto):
     user = newbie.user
     newbie_storage.remove(user)
     remove_inline_keyboard(greeting_message)
+    kick_text = Notification.timeout_kick(user.first_name)
     kick_message = bot.send_message(
         chat_id=greeting_message.chat.id,
-        text=f'*{user.first_name} пиздует из чата, потому что не ответил на вопрос.*',
+        text=f'*{kick_text}*',
         reply_to_message_id=greeting_message.message_id,
         parse_mode=TelegramParseMode.MARKDOWN
     )
@@ -229,4 +250,9 @@ def timeout_kick(newbie: NewbieDto):
 
 
 if __name__ == '__main__':
+    # bot.promote_chat_member(
+    #     -1001316002826,
+    #     143970697,
+    #     True
+    # )
     bot.polling()
