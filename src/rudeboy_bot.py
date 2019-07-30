@@ -5,12 +5,12 @@ from telebot import TeleBot
 from telebot.apihelper import ApiException
 from telebot.types import Message, CallbackQuery
 
-from const import TelegramChatType, EnvVar, TelegramParseMode, LoggingSettings, BanDuration
-from dto import NewbieDto
-from env_loader import EnvLoader
-from error import ParseBanDurationError, NewbieAlreadyInStorageError, NewbieStorageUpdateError
-from greeting import QuestionProvider, NewbieStorage
-from utils import BotUtils
+from .const import TelegramChatType, EnvVar, TelegramParseMode, LoggingSettings, BanDuration
+from .dto import NewbieDto
+from .env_loader import EnvLoader
+from .error import ParseBanDurationError, NewbieAlreadyInStorageError, NewbieStorageUpdateError
+from .greeting import QuestionProvider, NewbieStorage
+from .utils import BotUtils
 
 logging.basicConfig(
     format=LoggingSettings.RECORD_FORMAT,

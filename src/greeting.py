@@ -4,8 +4,8 @@ from typing import Dict, Any
 
 from telebot.types import InlineKeyboardButton, User, InlineKeyboardMarkup, Message
 
-from dto import GreetingQuestionDto, NewbieDto
-from error import NewbieAlreadyInStorageError, NewbieNotFoundInStorageError, NewbieStorageUpdateError
+from .dto import GreetingQuestionDto, NewbieDto
+from .error import NewbieAlreadyInStorageError, NewbieNotFoundInStorageError, NewbieStorageUpdateError
 
 
 class NewbieStorage:

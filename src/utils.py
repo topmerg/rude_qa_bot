@@ -1,8 +1,8 @@
 from telebot.types import User
 
-from const import RestrictDuration
-from dto import DurationDto, PluralFormsDto
-from error import ParseBanDurationError
+from .const import RestrictDuration
+from .dto import DurationDto, PluralFormsDto
+from .error import ParseBanDurationError
 
 
 class BotUtils:

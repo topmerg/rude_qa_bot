@@ -1,4 +1,4 @@
-from dto import PluralFormsDto, DurationDto
+from .dto import PluralFormsDto, DurationDto
 
 
 class TelegramChatType:
