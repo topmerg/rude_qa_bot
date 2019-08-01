@@ -2,6 +2,14 @@ class ParseBanDurationError(Exception):
     pass
 
 
+class InvalidCommandError(Exception):
+    pass
+
+
+class InvalidConditionError(Exception):
+    pass
+
+
 class NewbieAlreadyInStorageError(Exception):
     pass
 
