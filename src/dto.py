@@ -99,3 +99,61 @@ class NewbieDto:
     @property
     def greeting(self) -> Message:
         return self._greeting
+
+
+class RestrictionDto:
+    _messages: bool
+    _media: bool
+    _other: bool
+    _web_preview: bool
+
+    def __init__(self, messages: bool, media: bool, other: bool, web_preview: bool):
+        self._messages = messages
+        self._media = media
+        self._other = other
+        self._web_preview = web_preview
+
+    @property
+    def messages(self) -> bool:
+        return self._messages
+
+    @property
+    def media(self) -> bool:
+        return self._media
+
+    @property
+    def other(self) -> bool:
+        return self._other
+
+    @property
+    def web_preview(self) -> bool:
+        return self._web_preview
+
+
+class RestrictedUserDto:
+    _user: User
+    _chat_id: int
+    _until_date: int
+    _restriction: RestrictionDto
+
+    def __init__(self, user: User, chat_id: int, until_date: int, restriction: RestrictionDto):
+        self._user = user
+        self._chat_id = chat_id
+        self._until_date = until_date
+        self._restriction = restriction
+
+    @property
+    def user(self) -> User:
+        return self._user
+
+    @property
+    def chat_id(self) -> int:
+        return self._chat_id
+
+    @property
+    def until_date(self) -> int:
+        return self._until_date
+
+    @property
+    def restriction(self) -> RestrictionDto:
+        return self._restriction

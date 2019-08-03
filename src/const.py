@@ -22,11 +22,18 @@ class EnvVar:
     LOGGING_LEVEL = 'LOGGING_LEVEL'
 
 
+class RestrictCommand:
+    RO = '!ro'
+    TO = '!to'
+
+
 class RestrictDuration:
     DEFAULT_DURATION = 5
     DEFAULT_UNIT = 'm'
 
-    MIN_DURATION = DurationDto(35, '35 секунд')
+    UNSAFE_DURATION_SECONDS = 40
+
+    MIN_DURATION = DurationDto(5, '5 секунд')
     MAX_DURATION = DurationDto(864000, '10 дней')
 
     SECONDS_SETTINGS = dict(rate=1, plural_forms=PluralFormsDto(form_1='секунду', form_2='секунды', form_3='секунд'))
@@ -43,7 +50,7 @@ class RestrictDuration:
 
 
 class BanDuration:
-    DURATION_SECONDS = 35
+    DURATION_SECONDS = 60
 
 
 class NotificationTemplateList:

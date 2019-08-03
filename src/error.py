@@ -10,13 +10,13 @@ class InvalidConditionError(Exception):
     pass
 
 
-class NewbieAlreadyInStorageError(Exception):
+class UserAlreadyInStorageError(Exception):
     pass
 
 
-class NewbieNotFoundInStorageError(Exception):
+class UserNotFoundInStorageError(Exception):
     pass
 
 
-class NewbieStorageUpdateError(Exception):
+class UserStorageUpdateError(Exception):
     pass

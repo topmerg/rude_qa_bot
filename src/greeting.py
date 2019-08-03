@@ -1,11 +1,10 @@
-import copy
 import logging
 from typing import Dict, Any
 
 from telebot.types import InlineKeyboardButton, User, InlineKeyboardMarkup, Message
 
 from dto import GreetingQuestionDto, NewbieDto
-from error import NewbieAlreadyInStorageError, NewbieNotFoundInStorageError, NewbieStorageUpdateError
+from error import UserAlreadyInStorageError, UserNotFoundInStorageError, UserStorageUpdateError
 
 
 class NewbieStorage:
@@ -20,7 +19,7 @@ class NewbieStorage:
         self._logger.debug(f'Trying to add user @{user.username} into newbie list')
         if user.id in self._storage:
             self._logger.warning(f'Can not add! User @{user.username} already in newbie list.')
-            raise NewbieAlreadyInStorageError()
+            raise UserAlreadyInStorageError()
 
         self._storage.update({user.id: newbie})
 
@@ -35,8 +34,8 @@ class NewbieStorage:
         self._logger.debug(f'Trying to update greeting {greeting} for newbie @{user.username}')
         try:
             current_newbie = self.get(user)
-        except NewbieNotFoundInStorageError:
-            raise NewbieStorageUpdateError()
+        except UserNotFoundInStorageError:
+            raise UserStorageUpdateError()
         self._storage[user.id] = NewbieDto(
             user=current_newbie.user,
             timeout=current_newbie.timeout,
@@ -49,16 +48,10 @@ class NewbieStorage:
             return self._storage[user.id]
         except KeyError:
             self._logger.error(f'Can not get! User @{user.username} not found in newbie list.')
-            raise NewbieNotFoundInStorageError()
+            raise UserNotFoundInStorageError()
 
     def get_user_list(self) -> list:
         return list(self._storage.keys())
-
-    def get_expired(self, now: int):
-        newbie_list = copy.deepcopy(self._storage).values()
-        for newbie in newbie_list:
-            if newbie.timeout < now:
-                yield newbie
 
 
 class QuestionProvider:
@@ -73,7 +66,7 @@ class QuestionProvider:
             timeout=120,
             reply={
                 'да': '*{first_name} считает, что да.*',
-                'нет': '*{first_name} считает, что нет. ¯\_(ツ)_/¯*',
+                'нет': '*{first_name} считает, что нет. ¯\\_(ツ)_/¯*',
             }
 
         )
