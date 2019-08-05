@@ -283,6 +283,9 @@ def remove_inline_keyboard(greeting_message: Message):
 def timeout_kick(newbie: NewbieDto):
     greeting_message = newbie.greeting
     user = newbie.user
+    if user.id not in newbie_storage.get_user_list():
+        return
+
     newbie_storage.remove(user)
     remove_inline_keyboard(greeting_message)
     kick_text = notification.timeout_kick(user.first_name)
