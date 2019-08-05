@@ -135,12 +135,14 @@ class RestrictedUserDto:
     _chat_id: int
     _until_date: int
     _restriction: RestrictionDto
+    _restore_at: int
 
-    def __init__(self, user: User, chat_id: int, until_date: int, restriction: RestrictionDto):
+    def __init__(self, user: User, chat_id: int, until_date: int, restriction: RestrictionDto, restore_at: int):
         self._user = user
         self._chat_id = chat_id
         self._until_date = until_date
         self._restriction = restriction
+        self._restore_at = restore_at
 
     @property
     def user(self) -> User:
@@ -157,3 +159,7 @@ class RestrictedUserDto:
     @property
     def restriction(self) -> RestrictionDto:
         return self._restriction
+
+    @property
+    def restore_at(self) -> int:
+        return self._restore_at
