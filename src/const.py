@@ -53,6 +53,10 @@ class BanDuration:
     DURATION_SECONDS = 60
 
 
+class MessageSettings:
+    SELF_DESTRUCT_TIMEOUT = 5
+
+
 class NotificationTemplateList:
     READ_ONLY = [
         '{first_name} помещен в read-only на {duration_text}.',
