@@ -190,10 +190,6 @@ class BotUtils:
         self._newbie_storage.remove(user)
         self.remove_inline_keyboard(greeting_message)
 
-        member_data = self._bot.get_chat_member(greeting_message.chat.id, user.id)
-        if not member_data.is_member:
-            return
-
         kick_text = self._notification.timeout_kick(user.first_name)
         kick_message = self._bot.send_message(
             chat_id=greeting_message.chat.id,
