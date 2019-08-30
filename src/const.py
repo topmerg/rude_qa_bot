@@ -67,10 +67,10 @@ class RestrictDuration(BaseDuration):
 class BanDuration(BaseDuration):
     AUTO_KICK_DURATION_SECONDS = 60
 
-    DEFAULT_DURATION = 0
+    DEFAULT_DURATION = -1
     DEFAULT_UNIT = 's'
 
-    MIN_DURATION = DurationDto(29, 'навсегда')
+    MIN_DURATION = DurationDto(0, 'навсегда')
     MAX_DURATION = DurationDto(315360000, '10 лет')
 
 

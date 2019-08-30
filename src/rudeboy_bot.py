@@ -1,6 +1,6 @@
 from restriction import RestrictionStorage
 
-__version__ = '1.0.9'
+__version__ = '1.0.10'
 
 import logging
 
