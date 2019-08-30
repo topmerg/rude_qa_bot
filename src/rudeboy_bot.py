@@ -1,6 +1,6 @@
 from restriction import RestrictionStorage
 
-__version__ = '1.0.8'
+__version__ = '1.0.9'
 
 import logging
 
@@ -8,11 +8,11 @@ from telebot import TeleBot
 from telebot.apihelper import ApiException
 from telebot.types import Message, CallbackQuery
 
-from const import EnvVar, TelegramParseMode, LoggingSettings, RestrictCommand, \
-    MessageSettings
+from const import EnvVar, TelegramParseMode, LoggingSettings, ChatCommand, \
+    MessageSettings, BanDuration, RestrictDuration
 from env_loader import EnvLoader
 from error import ParseBanDurationError, UserAlreadyInStorageError, UserStorageUpdateError, \
-    InvalidCommandError, InvalidConditionError, UserNotFoundInStorageError
+    InvalidCommandError, InvalidConditionError, UserNotFoundInStorageError, UnauthorizedCommandError
 from greeting import QuestionProvider, NewbieStorage
 from notification import Notification
 from utils import BotUtils
@@ -88,8 +88,8 @@ def me_handler(message: Message):
 
 
 @bot.message_handler(func=lambda m: m.text and m.text[:4].rstrip() in [
-    RestrictCommand.RO,
-    RestrictCommand.TO,
+    ChatCommand.RO,
+    ChatCommand.TO,
 ])
 @methods.rude_qa_only
 @methods.supergroup_only
@@ -100,34 +100,32 @@ def restrict_handler(message: Message):
 
         command = message.text[:3]
         task_list = {
-            f'{RestrictCommand.RO}': methods.set_read_only,
-            f'{RestrictCommand.TO}': methods.set_text_only,
+            f'{ChatCommand.RO}': methods.set_read_only,
+            f'{ChatCommand.TO}': methods.set_text_only,
         }
 
         admin_list = [x.user.id for x in bot.get_chat_administrators(message.chat.id)]
         if message.from_user.id in admin_list:
             try:
                 target_message = message.reply_to_message
+
                 if target_message.from_user.id in admin_list:
                     logger.warning(f'@{message.from_user.username} trying to restrict another admin. Abort.')
                     raise InvalidConditionError()
             except AttributeError:
                 raise InvalidConditionError()
         else:
-            logger.warning(f'Non-factor {message.from_user.username} trying to use restrict command. Reflect!')
-            target_message = message
-            command = RestrictCommand.RO
+            raise UnauthorizedCommandError(message=message, service=methods, logger=logger)
 
         try:
             query = methods.prepare_query(message.text)
-            restrict_duration = methods.get_duration(query)
+            restrict_duration = methods.get_duration(text=query, duration_class=RestrictDuration())
         except ParseBanDurationError:
             raise InvalidCommandError
 
         target_user = target_message.from_user
         try:
             logger.info(f'Try to restrict @{target_user.username} with {command} for {query}.')
-            methods.check_current_restrictions(target_user, message, restrict_duration, command)
             try:
                 restrict_task = task_list.get(command)
                 restriction_text = restrict_task(
@@ -146,6 +144,99 @@ def restrict_handler(message: Message):
             )
         except ApiException:
             logger.error(f'Can not restrict chat member {target_user}')
+
+    except InvalidCommandError:
+        logger.warning(f'Can not execute command \'{message.text}\' from @{message.from_user.username}')
+        methods.delete_chat_message(message)
+    except InvalidConditionError:
+        pass
+
+
+@bot.message_handler(func=lambda m: m.text and m.text.strip() == ChatCommand.RW)
+@methods.rude_qa_only
+@methods.supergroup_only
+def permit_handler(message: Message):
+    try:
+        if message.forward_from:
+            raise InvalidConditionError()
+
+        admin_list = [x.user.id for x in bot.get_chat_administrators(message.chat.id)]
+        if message.from_user.id in admin_list:
+            try:
+                target_message = message.reply_to_message
+            except AttributeError:
+                raise InvalidCommandError()
+        else:
+            raise UnauthorizedCommandError(message=message, service=methods, logger=logger)
+
+        target_user = target_message.from_user
+
+        try:
+            chat_member = bot.get_chat_member(message.chat.id, target_user.id)
+            if not chat_member.until_date:
+                raise InvalidConditionError()
+
+            logger.info(f'Try to permit @{target_user.username}.')
+            permission_text = methods.set_read_write(user=target_user, message=message)
+
+            bot.send_message(
+                chat_id=message.chat.id,
+                text=f'*{permission_text}*',
+                reply_to_message_id=message.message_id,
+                parse_mode=TelegramParseMode.MARKDOWN,
+            )
+        except ApiException:
+            logger.error(f'Can not permit chat member {target_user}')
+
+    except InvalidCommandError:
+        logger.warning(f'Can not execute command \'{message.text}\' from @{message.from_user.username}')
+        methods.delete_chat_message(message)
+    except InvalidConditionError:
+        pass
+
+
+@bot.message_handler(func=lambda m: m.text and m.text[:5].rstrip() == ChatCommand.BAN)
+@methods.rude_qa_only
+@methods.supergroup_only
+def ban_handler(message: Message):
+    try:
+        if message.forward_from:
+            raise InvalidConditionError()
+
+        admin_list = [x.user.id for x in bot.get_chat_administrators(message.chat.id)]
+        if message.from_user.id in admin_list:
+            try:
+                target_message = message.reply_to_message
+                if target_message.from_user.id in admin_list:
+                    logger.warning(f'@{message.from_user.username} trying to ban another admin. Abort.')
+                    raise InvalidCommandError()
+            except AttributeError:
+                raise InvalidConditionError()
+        else:
+            raise UnauthorizedCommandError(message=message, service=methods, logger=logger)
+
+        try:
+            query = methods.prepare_query(message.text)
+            ban_duration = methods.get_duration(text=query, duration_class=BanDuration())
+        except ParseBanDurationError:
+            raise InvalidCommandError
+
+        target_user = target_message.from_user
+        try:
+            logger.info(f'Try to ban @{target_user.username} for {query}.')
+            ban_text = methods.ban_kick(
+                user=target_user,
+                message=message,
+                duration=ban_duration
+            )
+            bot.send_message(
+                chat_id=message.chat.id,
+                text=f'*{ban_text}*',
+                reply_to_message_id=message.message_id,
+                parse_mode=TelegramParseMode.MARKDOWN,
+            )
+        except ApiException:
+            logger.error(f'Can not kick chat member @{target_user.username}')
 
     except InvalidCommandError:
         logger.warning(f'Can not execute command \'{message.text}\' from @{message.from_user.username}')

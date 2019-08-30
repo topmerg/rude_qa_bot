@@ -6,7 +6,8 @@ from telebot import TeleBot
 from telebot.apihelper import ApiException
 from telebot.types import User, Message
 
-from const import RestrictDuration, TelegramParseMode, RestrictCommand, BanDuration, TelegramChatType
+from const import RestrictDuration, TelegramParseMode, ChatCommand, BanDuration, TelegramChatType, PunishmentDuration, \
+    BaseDuration
 from dto import DurationDto, PluralFormsDto, RestrictedUserDto, NewbieDto, RestrictionDto
 from error import ParseBanDurationError, InvalidConditionError, UserNotFoundInStorageError
 from greeting import NewbieStorage
@@ -51,27 +52,27 @@ class BotUtils:
         """
         return ' '.join(text.split()[1:])
 
-    def get_duration(self, text: str) -> DurationDto:
+    def get_duration(self, text: str, duration_class: BaseDuration) -> DurationDto:
         if text == '':
-            return self.get_duration(f'{RestrictDuration.DEFAULT_DURATION}{RestrictDuration.DEFAULT_UNIT}')
+            return self.get_duration(f'{duration_class.DEFAULT_DURATION}{duration_class.DEFAULT_UNIT}', duration_class)
 
         try:
             amount = int(text)
-            return self.get_duration(f'{amount}{RestrictDuration.DEFAULT_UNIT}')
+            return self.get_duration(f'{amount}{duration_class.DEFAULT_UNIT}', duration_class)
         except ValueError:
             pass
 
         try:
             amount = int(text[:-1])
-            unit = RestrictDuration.UNITS[text[-1]]
+            unit = duration_class.UNITS[text[-1]]
 
             duration_seconds = int(amount * unit['rate'])
 
-            if duration_seconds < RestrictDuration.MIN_DURATION.seconds:
-                return RestrictDuration.MIN_DURATION
+            if duration_seconds < duration_class.MIN_DURATION.seconds:
+                return duration_class.MIN_DURATION
 
-            if duration_seconds > RestrictDuration.MAX_DURATION.seconds:
-                return RestrictDuration.MAX_DURATION
+            if duration_seconds > duration_class.MAX_DURATION.seconds:
+                return duration_class.MAX_DURATION
 
             duration_unit = self.get_plural(amount, unit['plural_forms'])
 
@@ -118,13 +119,13 @@ class BotUtils:
         chat_member = self._bot.get_chat_member(message.chat.id, user.id)
 
         restriction_list = {
-            RestrictCommand.RO: RestrictionDto(
+            ChatCommand.RO: RestrictionDto(
                 True,
                 True if chat_member.can_send_media_messages is None else chat_member.can_send_media_messages,
                 True if chat_member.can_send_other_messages is None else chat_member.can_send_other_messages,
                 True if chat_member.can_add_web_page_previews is None else chat_member.can_add_web_page_previews,
             ),
-            RestrictCommand.TO: RestrictionDto(
+            ChatCommand.TO: RestrictionDto(
                 True,
                 True,
                 True if chat_member.can_send_other_messages is None else chat_member.can_send_other_messages,
@@ -145,6 +146,13 @@ class BotUtils:
             self.create_scheduled_threat(duration.seconds, self.restore_restriction, (restricted_user,))
 
     def set_read_only(self, user: User, message: Message, duration: DurationDto) -> str:
+        self.check_current_restrictions(
+            user=user,
+            message=message,
+            duration=duration,
+            command=ChatCommand.RO,
+        )
+
         self._bot.restrict_chat_member(
             chat_id=message.chat.id,
             user_id=user.id,
@@ -159,6 +167,13 @@ class BotUtils:
         return restriction_text
 
     def set_text_only(self, user: User, message: Message, duration: DurationDto) -> str:
+        self.check_current_restrictions(
+            user=user,
+            message=message,
+            duration=duration,
+            command=ChatCommand.TO,
+        )
+
         self._bot.restrict_chat_member(
             chat_id=message.chat.id,
             user_id=user.id,
@@ -172,6 +187,51 @@ class BotUtils:
         )
 
         return restriction_text
+
+    def set_punishment(self, user: User, message: Message) -> str:
+        duration = PunishmentDuration.DURATION
+        self.set_read_only(
+            user=user,
+            message=message,
+            duration=duration
+        )
+
+        restriction_text = self._notification.unauthorized_punishment(
+            first_name=user.first_name,
+        )
+
+        return restriction_text
+
+    def set_read_write(self, user: User, message: Message) -> str:
+        self._bot.restrict_chat_member(
+            chat_id=message.chat.id,
+            user_id=user.id,
+            can_send_messages=True,
+            can_send_media_messages=True,
+            can_send_other_messages=True,
+            can_add_web_page_previews=True,
+        )
+        restriction_text = self._notification.read_write(first_name=user.first_name)
+
+        return restriction_text
+
+    def ban_kick(self, user: User, message: Message, duration: DurationDto) -> str:
+        self._newbie_storage.remove(user)
+
+        self._bot.kick_chat_member(
+            chat_id=message.chat.id,
+            user_id=user.id,
+            until_date=message.date + duration.seconds,
+        )
+        self._logger.info(f'@{user.username} was banned by {message.from_user.username} for {duration.text}.')
+
+        duration_text = duration.text
+        if duration.seconds > 0:
+            duration_text = f'на {duration.text}'
+
+        kick_text = self._notification.ban_kick(user.first_name, duration_text)
+
+        return kick_text
 
     def create_scheduled_threat(self, pause: int, action, args: tuple):
         threading.Thread(target=self._handle_scheduled_task, args=(pause, action, args,)).start()
@@ -201,7 +261,7 @@ class BotUtils:
             self._bot.kick_chat_member(
                 chat_id=greeting_message.chat.id,
                 user_id=user.id,
-                until_date=kick_message.date + BanDuration.DURATION_SECONDS,
+                until_date=kick_message.date + BanDuration.AUTO_KICK_DURATION_SECONDS,
             )
             self._logger.info(f'@{user.username} was kicked from chat due greeting timeout.')
         except ApiException:

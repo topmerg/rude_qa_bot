@@ -37,8 +37,28 @@ class Notification:
             duration_text=duration_text,
         )
 
+    def read_write(self, first_name: str) -> str:
+        template = self._get_notification('read_write', NotificationTemplateList.READ_WRITE)
+
+        return template.format(first_name=first_name)
+
     def timeout_kick(self, first_name: str) -> str:
         template = self._get_notification('timeout_kick', NotificationTemplateList.TIMEOUT_KICK)
+
+        return template.format(
+            first_name=first_name,
+        )
+
+    def ban_kick(self, first_name: str, duration_text: str) -> str:
+        template = self._get_notification('ban_kick', NotificationTemplateList.BAN_KICK)
+
+        return template.format(
+            first_name=first_name,
+            duration_text=duration_text,
+        )
+
+    def unauthorized_punishment(self, first_name: str) -> str:
+        template = self._get_notification('unauthorized_punishment', NotificationTemplateList.UNAUTHORIZED_PUNISHMENT)
 
         return template.format(
             first_name=first_name,
