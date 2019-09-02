@@ -1,6 +1,6 @@
 from restriction import RestrictionStorage
 
-__version__ = '1.0.10'
+__version__ = '1.0.11'
 
 import logging
 
@@ -115,7 +115,7 @@ def restrict_handler(message: Message):
             except AttributeError:
                 raise InvalidConditionError()
         else:
-            raise UnauthorizedCommandError(message=message, service=methods, logger=logger)
+            raise UnauthorizedCommandError(message=message, service=methods, bot=bot, logger=logger)
 
         try:
             query = methods.prepare_query(message.text)
@@ -167,7 +167,7 @@ def permit_handler(message: Message):
             except AttributeError:
                 raise InvalidCommandError()
         else:
-            raise UnauthorizedCommandError(message=message, service=methods, logger=logger)
+            raise UnauthorizedCommandError(message=message, service=methods, bot=bot, logger=logger)
 
         target_user = target_message.from_user
 
@@ -213,7 +213,7 @@ def ban_handler(message: Message):
             except AttributeError:
                 raise InvalidConditionError()
         else:
-            raise UnauthorizedCommandError(message=message, service=methods, logger=logger)
+            raise UnauthorizedCommandError(message=message, service=methods, bot=bot, logger=logger)
 
         try:
             query = methods.prepare_query(message.text)
