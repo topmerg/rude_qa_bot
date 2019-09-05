@@ -10,6 +10,15 @@ class TelegramParseMode:
     HTML = 'HTML'
 
 
+class TelegramMemberStatus:
+    CREATOR = 'creator'
+    ADMINISTRATOR = 'administrator'
+    MEMBER = 'member'
+    RESTRICTED = 'restricted'
+    LEFT = 'left'
+    KICKED = 'kicked'
+
+
 class LoggingSettings:
     RECORD_FORMAT = '%(asctime)s %(levelname)s %(message)s'
     DATE_FORMAT = '%Y-%m-%d %H:%M:%S'
@@ -27,6 +36,7 @@ class ChatCommand:
     TO = '!to'
     RW = '!rw'
     BAN = '!ban'
+    PASS = '!pass'
 
 
 class BaseDuration:

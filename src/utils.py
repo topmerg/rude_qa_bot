@@ -315,3 +315,6 @@ class BotUtils:
                 pass
 
         return wrapper
+
+    def is_admin(self, user: User):
+        return user.id in [_.user.id for _ in self._bot.get_chat_administrators(self.chat_id)]

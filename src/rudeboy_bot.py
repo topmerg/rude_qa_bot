@@ -1,6 +1,6 @@
 from restriction import RestrictionStorage
 
-__version__ = '1.0.11'
+__version__ = '1.0.12'
 
 import logging
 
@@ -9,7 +9,7 @@ from telebot.apihelper import ApiException
 from telebot.types import Message, CallbackQuery
 
 from const import EnvVar, TelegramParseMode, LoggingSettings, ChatCommand, \
-    MessageSettings, BanDuration, RestrictDuration
+    MessageSettings, BanDuration, RestrictDuration, TelegramMemberStatus
 from env_loader import EnvLoader
 from error import ParseBanDurationError, UserAlreadyInStorageError, UserStorageUpdateError, \
     InvalidCommandError, InvalidConditionError, UserNotFoundInStorageError, UnauthorizedCommandError
@@ -97,6 +97,8 @@ def restrict_handler(message: Message):
     try:
         if message.forward_from:
             raise InvalidConditionError()
+        if not methods.is_admin(message.from_user):
+            raise UnauthorizedCommandError(message=message, service=methods, bot=bot, logger=logger)
 
         command = message.text[:3]
         task_list = {
@@ -104,18 +106,13 @@ def restrict_handler(message: Message):
             f'{ChatCommand.TO}': methods.set_text_only,
         }
 
-        admin_list = [x.user.id for x in bot.get_chat_administrators(message.chat.id)]
-        if message.from_user.id in admin_list:
-            try:
-                target_message = message.reply_to_message
-
-                if target_message.from_user.id in admin_list:
-                    logger.warning(f'@{message.from_user.username} trying to restrict another admin. Abort.')
-                    raise InvalidConditionError()
-            except AttributeError:
-                raise InvalidConditionError()
-        else:
-            raise UnauthorizedCommandError(message=message, service=methods, bot=bot, logger=logger)
+        try:
+            target_message = message.reply_to_message
+        except AttributeError:
+            raise InvalidConditionError()
+        if methods.is_admin(target_message.from_user):
+            logger.warning(f'@{message.from_user.username} trying to restrict another admin. Abort.')
+            raise InvalidConditionError()
 
         try:
             query = methods.prepare_query(message.text)
@@ -159,21 +156,19 @@ def permit_handler(message: Message):
     try:
         if message.forward_from:
             raise InvalidConditionError()
-
-        admin_list = [x.user.id for x in bot.get_chat_administrators(message.chat.id)]
-        if message.from_user.id in admin_list:
-            try:
-                target_message = message.reply_to_message
-            except AttributeError:
-                raise InvalidCommandError()
-        else:
+        if not methods.is_admin(message.from_user):
             raise UnauthorizedCommandError(message=message, service=methods, bot=bot, logger=logger)
+
+        try:
+            target_message = message.reply_to_message
+        except AttributeError:
+            raise InvalidCommandError()
 
         target_user = target_message.from_user
 
         try:
             chat_member = bot.get_chat_member(message.chat.id, target_user.id)
-            if not chat_member.until_date:
+            if chat_member.status != TelegramMemberStatus.RESTRICTED:
                 raise InvalidConditionError()
 
             logger.info(f'Try to permit @{target_user.username}.')
@@ -202,18 +197,16 @@ def ban_handler(message: Message):
     try:
         if message.forward_from:
             raise InvalidConditionError()
-
-        admin_list = [x.user.id for x in bot.get_chat_administrators(message.chat.id)]
-        if message.from_user.id in admin_list:
-            try:
-                target_message = message.reply_to_message
-                if target_message.from_user.id in admin_list:
-                    logger.warning(f'@{message.from_user.username} trying to ban another admin. Abort.')
-                    raise InvalidCommandError()
-            except AttributeError:
-                raise InvalidConditionError()
-        else:
+        if not methods.is_admin(message.from_user):
             raise UnauthorizedCommandError(message=message, service=methods, bot=bot, logger=logger)
+
+        try:
+            target_message = message.reply_to_message
+            if methods.is_admin(target_message.from_user):
+                logger.warning(f'@{message.from_user.username} trying to ban another admin. Abort.')
+                raise InvalidCommandError()
+        except AttributeError:
+            raise InvalidConditionError()
 
         try:
             query = methods.prepare_query(message.text)
@@ -285,12 +278,60 @@ def greeting_handler(message: Message):
             methods.delete_chat_message(greeting_message)
 
 
+@bot.message_handler(func=lambda m: m.text and m.text == ChatCommand.PASS)
+@methods.rude_qa_only
+@methods.supergroup_only
+def pass_handler(message: Message):
+    try:
+        if message.forward_from:
+            raise InvalidConditionError()
+        if not methods.is_admin(message.from_user):
+            raise UnauthorizedCommandError(message=message, service=methods, bot=bot, logger=logger)
+        try:
+            target_message = message.reply_to_message
+        except AttributeError:
+            raise InvalidConditionError()
+        if target_message is None:
+            raise InvalidConditionError()
+        newbie_list = newbie_storage.get_user_list()
+        if not newbie_list:
+            raise InvalidConditionError()
+
+        for newbie in newbie_storage:
+            if newbie.greeting.message_id == target_message.message_id:
+                methods.delete_chat_message(message)
+                methods.delete_chat_message(newbie.greeting)
+                bot.restrict_chat_member(
+                    chat_id=target_message.chat.id,
+                    user_id=newbie.user.id,
+                    can_send_messages=True,
+                )
+                newbie_storage.remove(newbie.user)
+                return
+        raise InvalidConditionError()
+
+    except ApiException:
+        logger.error(f'Can not pass message')
+    except InvalidConditionError:
+        pass
+
+
 @bot.callback_query_handler(func=lambda call: True)
 def greeting_callback(call: CallbackQuery):
-    if call.message and call.from_user.id in newbie_storage.get_user_list():
+    try:
+        if not call.message:
+            raise InvalidConditionError()
+        if call.from_user.id not in newbie_storage.get_user_list():
+            raise InvalidConditionError()
+
+        newbie = newbie_storage.get(call.from_user)
+        greeting_message = newbie.greeting
+        if call.message.message_id != greeting_message.message_id:
+            raise InvalidConditionError()
+
         methods.remove_inline_keyboard(call.message)
         try:
-            reply = newbie_storage.get(call.from_user).question.reply[call.data]
+            reply = newbie.question.reply[call.data]
         except (KeyError, TypeError):
             reply = '*{first_name} ответил "{call_data}".*'
         bot.send_message(
@@ -300,7 +341,7 @@ def greeting_callback(call: CallbackQuery):
             parse_mode=TelegramParseMode.MARKDOWN,
         )
 
-        newbie_storage.remove(call.from_user)
+        newbie_storage.remove(newbie.user)
         try:
             bot.restrict_chat_member(
                 chat_id=call.message.chat.id,
@@ -309,6 +350,8 @@ def greeting_callback(call: CallbackQuery):
             )
         except ApiException:
             logger.error(f'Can not disable restriction for chat member @{call.from_user.username}')
+    except InvalidConditionError:
+        pass
 
 
 if __name__ == '__main__':

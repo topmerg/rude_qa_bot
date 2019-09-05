@@ -14,6 +14,10 @@ class NewbieStorage:
         self._storage = dict()
         self._logger = logger
 
+    def __iter__(self):
+        for key, value in self._storage.items():
+            yield value
+
     def add(self, user: User, timeout: int, question: GreetingQuestionDto):
         newbie = NewbieDto(user=user, timeout=timeout, question=question)
         self._logger.debug(f'Trying to add user @{user.username} into newbie list')
