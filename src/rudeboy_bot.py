@@ -347,6 +347,9 @@ def greeting_callback(call: CallbackQuery):
                 chat_id=call.message.chat.id,
                 user_id=call.from_user.id,
                 can_send_messages=True,
+                can_send_media_messages=True,
+                can_send_other_messages=True,
+                can_add_web_page_previews=True
             )
         except ApiException:
             logger.error(f'Can not disable restriction for chat member @{call.from_user.username}')
