@@ -2,6 +2,8 @@ version: '3.2'
 
 services:
   rudeboy_bot:
+    restart:
+      always
     build:
       context: .
     env_file:
