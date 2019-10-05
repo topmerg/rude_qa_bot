@@ -91,33 +91,36 @@ class MessageSettings:
 class NotificationTemplateList:
     READ_ONLY = [
         '{first_name} помещен в read-only на {duration_text}.',
-        '{first_name} завалил ебало на {duration_text}.',
-        '{first_name} выпил высокий стакан ебалозавалина, которого хватит на {duration_text}.',
-        '{first_name} не будет пиздеть ещё {duration_text}.',
-        '{first_name} сможет дальше пиздеть только через {duration_text}.',
+        '{first_name} утомил всех и лишился права голоса на {duration_text}.',
+        '{first_name} идет поработать на {duration_text}.',
+        'Мы не услышим {first_name} еще {duration_text}.',
+        '{first_name} отправился подумать над своим поведением {duration_text}.',
     ]
 
     TEXT_ONLY = [
         '{first_name} помещен в text-only на {duration_text}.',
-        '{first_name} не будет постить уебанские картиночки {duration_text}.',
+        '{first_name} обойдется без стикеров {duration_text}.',
+        '{first_name} учится выражать свои мысли словами {duration_text}.',
+        '{first_name} отправился в путешествие за нормальными стикерами, вернется через {duration_text}.'
     ]
 
     READ_WRITE = [
-        '{first_name} может дальше пиздеть и постить уебанские картиночки.',
-        '{first_name} слезает с бутылки.',
+        '{first_name} избавлен от всех наказаний.',
+        '{first_name} вышел по амнистии.',
     ]
 
     TIMEOUT_KICK = [
-        '{first_name} пиздует из чата, потому что не ответил на вопрос.',
+        '{first_name} покидает чат, потому что не ответил на вопрос.',
         'Вопрос был довольно простой. {first_name} ведёт себя, как бот.',
         '{first_name} слишком долго тупит. Здесь таких не держат.',
     ]
 
     BAN_KICK = [
-        '{first_name} идёт нахуй из чата {duration_text}.',
+        '{first_name} удаляется из чата {duration_text}.',
     ]
 
     UNAUTHORIZED_PUNISHMENT = [
-        '{first_name} нажал не те кнопки и получает пизды в виде read-only.',
-        '{first_name} дохуя о себе думает, поэтому теперь завалит ебало.',
+        '{first_name} думал, что ему все можно и получил read-only.',
+        '{first_name}, команды администраторов - не для простых смертных.',
+        '{first_name}, Quod licet Iovi, non licet bovi.'
     ]

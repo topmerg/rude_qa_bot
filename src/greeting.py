@@ -62,10 +62,10 @@ class QuestionProvider:
     @staticmethod
     def get_question() -> GreetingQuestionDto:
         return GreetingQuestionDto(
-            text='{mention}, UI это API?',
+            text='{mention}, прочитал(а) правила чата?',
             keyboard=InlineKeyboardMarkup().row(
-                InlineKeyboardButton(text='Да, определённо!', callback_data='да'),
-                InlineKeyboardButton(text='Нет, обоссыте меня', callback_data='нет'),
+                InlineKeyboardButton(text='Да, принял(а) к сведению.', callback_data='да'),
+                InlineKeyboardButton(text='Нет, но сейчас прочитаю.', callback_data='нет'),
             ),
             timeout=120,
             reply={
